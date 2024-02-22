@@ -6,11 +6,12 @@ import torch
 
 
 def main(game_name, game_length):
-	#Game description
-	reward_mode = 'time'
-	reward_scale = 1.0
-	elite_prob = .5
-	env = Env(game_name, game_length, {'reward_mode': reward_mode, 'reward_scale': reward_scale, 'elite_prob': elite_prob})
+    # Game description
+    reward_mode = 'time'
+    reward_scale = 1.0
+    elite_prob = .5
+    env = Env(game_name, game_length,
+              {'reward_mode': reward_mode, 'reward_scale': reward_scale, 'elite_prob': elite_prob})
 
 	#Network
 	latent_shape = (512,)
@@ -18,18 +19,18 @@ def main(game_name, game_length):
 	lr = .0001
 	gen = Generator(latent_shape, env, 'pixel', dropout, lr)
 
-	#Agent
-	num_processes = 16
-	experiment = "Experiment_Paper"
-	lr = .00025
-	model = 'resnet'
-	dropout = 0
-	reconstruct = gen
-	r_weight = .05
-	Agent.num_steps = 5
-	Agent.entropy_coef = .01
-	Agent.value_loss_coef = .1
-	agent = Agent(env, num_processes, experiment, 0, lr, model, dropout, reconstruct, r_weight)
+    # Agent
+    num_processes = 16
+    experiment = "Experiment_Paper"
+    lr = .00025
+    model = 'resnet'
+    dropout = 0
+    reconstruct = gen
+    r_weight = .05
+    Agent.num_steps = 5
+    Agent.entropy_coef = .01
+    Agent.value_loss_coef = .1
+    agent = Agent(env, num_processes, experiment, 0, lr, model, dropout, reconstruct, r_weight)
 
 	#Training
 	gen_updates = 100
@@ -46,5 +47,6 @@ def main(game_name, game_length):
 	t = Trainer(gen, agent, experiment, load_version, elite_mode, elite_persist)
 	t.train(gen_updates, gen_batch, gen_batches, diversity_batches, rl_batch, pretrain)
 
-if(__name__ == "__main__"):
-	main('zelda', 1000)
+
+if __name__ == "__main__":
+    main('zelda', 1000)

@@ -122,17 +122,21 @@ class LevelVisualizer:
         return lvl_tiles
 
     def draw_level(self, level_str):
-        level_str = self.remove_excess_objs(level_str)
-        lvl_rows = level_str.split()
-        w = len(lvl_rows[0])
-        h = len(lvl_rows)
-        ts = self.tile_size
+        level_str = self.remove_excess_objs(level_str)  # remove unwanted characters
+        lvl_rows = level_str.split()  # split the str by /n
+        w = len(lvl_rows[0])  # the length of every element in the list becomes the wide
+        h = len(lvl_rows)  # the number of the elements in the list becomes height --> the whole game pic is a grid w*h
+        ts = self.tile_size  # set the tile size
         p = self.pad
+        # create a new image --> size
+        # w*ts+2*p is the width of the image w is the number of tiles in wide plus the ts tile size
+        # 2*p is the padding at the edge of the img
+        # only white background
         lvl_img = Image.new("RGB", (w*ts+2*p, h*ts + 2*p), (255, 255, 255))
-
         for y,r in enumerate(lvl_rows):
-            for x,c in enumerate(r):
+            for x, c in enumerate(r):
                 img = self.tiles[c]
+                # paste things in the background
                 lvl_img.paste(img, (p + x*ts, p + y*ts, p + (x+1)*ts, p + (y+1)*ts))
 
         return lvl_img

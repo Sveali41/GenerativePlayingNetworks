@@ -1,4 +1,3 @@
-
 """
 Wrappers for VGDL Games
 """
@@ -7,9 +6,9 @@ import csv
 import random
 import numpy as np
 
-#import timeout_decorator
-
-import gym
+# import timeout_decorator
+# import gym
+import gymnasium as gym
 import gym_gvgai
 
 import a2c_ppo_acktr.envs as torch_env
@@ -21,14 +20,15 @@ from baselines.common.vec_env.vec_normalize import VecNormalize
 
 import pdb
 
+
 def make_env(env_def, path, seed, rank, log_dir, allow_early_resets, **env_kwargs):
     def _thunk():
-        if(path):
+        if (path):
             env = GridGame(env_def.name, env_def.length, env_def.state_shape, path, id=rank, **env_def.kwargs)
         else:
             env = GridGame(env_def.name, env_def.length, env_def.state_shape, id=rank, **env_def.kwargs)
 
-        #env.seed(seed + rank)
+        # env.seed(seed + rank)
         obs_shape = env.observation_space.shape
 
         if log_dir is not None:
@@ -37,33 +37,38 @@ def make_env(env_def, path, seed, rank, log_dir, allow_early_resets, **env_kwarg
                 os.path.join(log_dir, str(rank)),
                 allow_early_resets=allow_early_resets)
         return env
+
     return _thunk
 
-def make_vec_envs(env_def, level_path, seed, num_processes, gamma, log_dir, device, allow_early_resets, num_frame_stack=None):
 
+def make_vec_envs(env_def, level_path, seed, num_processes, gamma, log_dir, device, allow_early_resets,
+                  num_frame_stack=None):
     envs = [make_env(env_def, level_path, seed, i, log_dir, allow_early_resets) for i in range(num_processes)]
-
+    # num_processes present if there is several env or only one
+    # generate env list (total num_processes elements)
     if len(envs) > 1:
         envs = ShmemVecEnv(envs, context='fork')
     else:
         envs = DummyVecEnv(envs)
 
-    #if len(envs.observation_space.shape) == 1:
+    # if len(envs.observation_space.shape) == 1:
     #    if gamma is None:
     #        envs = VecNormalize(envs, ret=False)
     #    else:
     #        envs = VecNormalize(envs, gamma=gamma)
 
-    envs = torch_env.VecPyTorch(envs, device)
-
-    #if num_frame_stack is not None:
+    envs = torch_env.VecNumpy(envs, device)
+    envs.action_space = gym.spaces.Discrete(envs.action_space.n)
+    envs.observation_space = gym.spaces.Box(low=0.0, high=1.0, shape=env_def.state_shape, dtype=np.float32)
+    # if num_frame_stack is not None:
     #    envs = torch_env.VecPyTorchFrameStack(envs, num_frame_stack, device)
-    #elif len(envs.observation_space.shape) == 3:
+    # elif len(envs.observation_space.shape) == 3:
     #    envs = torch_env.VecPyTorchFrameStack(envs, 4, device)
 
     return envs
 
-#Look at baseline wrappers and make a wrapper file: New vec_wrapper + game_wrapper
+
+# Look at baseline wrappers and make a wrapper file: New vec_wrapper + game_wrapper
 class GridGame(gym.Wrapper):
     def __init__(self, game, play_length, shape, path=None, id=0, reward_mode='time', reward_scale=2, elite_prob=0):
         """Returns Grid instead of pixels
@@ -100,14 +105,14 @@ class GridGame(gym.Wrapper):
 
     def step(self, action):
         action = action.item()
-        if(not self.compiles):
+        if (not self.compiles):
             return self.state, -self.rscale, True, {}
         _, r, done, info = self.env.step(action)
-        if(self.steps >= self.play_length):
+        if (self.steps >= self.play_length):
             done = True
-        if(self.rmode=='base'):
+        if (self.rmode == 'base'):
             reward = self.get_reward(done, info["winner"], r)
-        elif(self.rmode=='time'):
+        elif (self.rmode == 'time'):
             reward = self.get_time_reward(done, info["winner"], r)
         else:
             raise Exception("Reward Scheme Not Implemented")
@@ -117,29 +122,29 @@ class GridGame(gym.Wrapper):
         return state, reward, done, {}
 
     def get_time_reward(self, isOver, winner, r):
-        if(isOver):
-            if(winner == 'PLAYER_WINS'):
-                reward = self.rscale - self.steps/self.play_length
+        if (isOver):
+            if (winner == 'PLAYER_WINS'):
+                reward = self.rscale - self.steps / self.play_length
             else:
-                reward = -self.rscale + self.steps/self.play_length
+                reward = -self.rscale + self.steps / self.play_length
             self.log_reward(self.score + reward)
             return reward
         else:
-            if(r > 0):
-                return 1/self.play_length
+            if (r > 0):
+                return 1 / self.play_length
             else:
                 return 0
 
     def get_reward(self, isOver, winner, r):
-        if(isOver):
-            if(winner == 'PLAYER_WINS'):
+        if (isOver):
+            if (winner == 'PLAYER_WINS'):
                 reward = 1
             else:
                 reward = -1
             self.log_reward(self.score + reward)
             return reward
         else:
-            return 0
+            return  0 #-1
 
     def get_state(self, grid):
         state = self.pad(grid)
@@ -148,13 +153,13 @@ class GridGame(gym.Wrapper):
         return state
 
     def set_level(self):
-        if(self.levels and random.random() >= self.elitep):
+        if (self.levels and random.random() >= self.elitep):
             level_names = [file for file in os.listdir(self.levels) if file.endswith('.txt')]
             selection = random.choice(level_names)[:-4]
             self.level_id = int(selection[4:])
             path = os.path.join(self.levels, selection)
             state = np.load(path + ".npy")
-            if(os.path.isfile(path + ".no_compile")):
+            if (os.path.isfile(path + ".no_compile")):
                 self.compiles = False
             else:
                 try:
@@ -162,17 +167,17 @@ class GridGame(gym.Wrapper):
                     self.test_level()
                     self.compiles = True
                 except Exception as e:
-                    #print(e)
+                    # print(e)
                     self.compiles = False
                     self.restart(e, path)
                 except SystemExit:
-                    #print("SystemExit")
+                    # print("SystemExit")
                     self.compiles = False
                     self.restart("SystemExit", path)
         else:
             self.compiles = True
-            self.level_id = -1             #So log_reward doesn't track the validity of this level
-            lvl = random.randint(0,4)
+            self.level_id = -1  # So log_reward doesn't track the validity of this level
+            lvl = random.randint(0, 4)
             self.env.unwrapped._setLevel(lvl)
             self.env.reset()
             _, _, _, info = self.env.step(0)
@@ -186,16 +191,16 @@ class GridGame(gym.Wrapper):
             log.write(str(text) + "\n")
 
     def log_reward(self, reward):
-        if(self.level_id >= 0):
+        if (self.level_id >= 0):
             path = os.path.join(self.levels, 'rewards_{}.csv'.format(self.id))
-            add_header = not  os.path.exists(path)
+            add_header = not os.path.exists(path)
             with open(path, 'a+') as rewards:
                 writer = csv.writer(rewards)
-                if(add_header):
+                if (add_header):
                     writer.writerow(['level', 'reward'])
                 writer.writerow((self.level_id, reward))
 
-    #@timeout_decorator.timeout(1, use_signals=False)
+    # @timeout_decorator.timeout(1, use_signals=False)
     def test_level(self):
         self.env.reset()
         self.env.step(0)
@@ -204,9 +209,9 @@ class GridGame(gym.Wrapper):
     def pad(self, state):
         pad_h = max(self.shape[-2] - state.shape[-2], 0)
         pad_w = max(self.shape[-1] - state.shape[-1], 0)
-        pad_height = (pad_h//2, pad_h-pad_h//2)
-        pad_width = (pad_w//2, pad_w-pad_w//2)
-        padding = ((0,0), pad_height, pad_width)
+        pad_height = (pad_h // 2, pad_h - pad_h // 2)
+        pad_width = (pad_w // 2, pad_w - pad_w // 2)
+        padding = ((0, 0), pad_height, pad_width)
         return np.pad(state, padding, 'constant')
 
     def background(self, state):
@@ -215,9 +220,10 @@ class GridGame(gym.Wrapper):
         return np.concatenate([state, background])
 
     def restart(self, e, path):
-        #self.log(e)
+        # self.log(e)
         open(path + ".no_compile", 'w').close()
         self.env = gym_gvgai.make('gvgai-{}-lvl0-v{}'.format(self.name, self.version))
+
 
 class CenteredGym(gym.Wrapper):
     def __init__(self, env, mapping, ascii):
@@ -228,8 +234,8 @@ class CenteredGym(gym.Wrapper):
         self.avatar = mapping[ascii.index('A')]
 
         d, h, w = self.env.shape
-        self.shape = (d, h + 2*(h//2), w + 2*(w//2))
-        self.pad = (self.shape[1]//2, self.shape[2]//2)
+        self.shape = (d, h + 2 * (h // 2), w + 2 * (w // 2))
+        self.pad = (self.shape[1] // 2, self.shape[2] // 2)
         self.observation_space = gym.spaces.Box(low=0, high=1, shape=self.shape, dtype=np.float32)
 
     def step(self, action):
@@ -246,11 +252,11 @@ class CenteredGym(gym.Wrapper):
         x, y = self.get_pos(obs)
         pad_dims = ((0, 0), (self.pad[0], self.pad[0]), (self.pad[1], self.pad[1]))
         padded = np.pad(obs, pad_dims, mode='constant')
-        centered  = padded[:, y:y + self.shape[1], x:x + self.shape[2]]
+        centered = padded[:, y:y + self.shape[1], x:x + self.shape[2]]
         return centered
 
     def get_pos(self, obs):
-        #map = obs[self.avatar]
-        #pos = np.unravel_index(map.argmax(), map.shape)
-        y, x = np.argwhere(obs.argmax(0)==self.avatar)[0]
+        # map = obs[self.avatar]
+        # pos = np.unravel_index(map.argmax(), map.shape)
+        y, x = np.argwhere(obs.argmax(0) == self.avatar)[0]
         return (x, y)
